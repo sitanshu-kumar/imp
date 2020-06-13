@@ -1,0 +1,103 @@
+stages:
+  - build
+  - deploy
+
+before_script:
+  # needed for phantomjs
+  - export QT_QPA_PLATFORM=offscreen
+
+run test cases and build testing:
+  stage: build
+  image: node:10.13.0
+  script:
+    - npm install -g rimraf
+    - npm install
+    - npm run build
+  only:
+    - develop
+  cache:
+    untracked: true
+    paths:
+      - build/
+
+deploy to development:
+  variables:
+    S3_BUCKET_NAME: "admin-dev.impactall.co.in"
+  environment:
+    name: development
+  stage: deploy
+  image: python:latest
+  script:
+    - pip install awscli
+    - aws s3 sync ./build s3://$S3_BUCKET_NAME/ --exclude "*.map" --delete
+  only:
+    - develop
+  cache:
+    untracked: true
+    paths:
+      - build/
+
+run test cases and build staging:
+  stage: build
+  image: node:10.13.0
+  script:
+    - npm install -g rimraf
+    - npm install
+    - npm run build
+  only:
+    - staging
+  cache:
+    untracked: true
+    paths:
+      - build/
+
+deploy to staging:
+  variables:
+    S3_BUCKET_NAME: "admin-dev-v2.shapecrunch.com"
+  environment:
+    name: staging
+  stage: deploy
+  image: python:latest
+  script:
+    - pip install awscli
+    - aws s3 sync ./build s3://$S3_BUCKET_NAME/ --exclude "*.map" --delete
+  only:
+    - staging
+  cache:
+    untracked: true
+    paths:
+      - build/
+
+run test cases and build production:
+  stage: build
+  image: node:10.13.0
+  script:
+    - npm install -g rimraf
+    - npm install
+    - npm run build
+  only:
+    - master
+  cache:
+    untracked: true
+    paths:
+      - build/
+
+deploy to production:
+  variables:
+    S3_BUCKET_NAME: "admin.impactall.co.in"
+  environment:
+    name: production
+  stage: deploy
+  # when: manual
+  image: python:latest
+  script:
+    - pip install awscli
+    - aws configure set preview.cloudfront true
+    - aws s3 sync ./build s3://$S3_BUCKET_NAME/ --exclude "*.map" --delete
+    - aws cloudfront create-invalidation --distribution-id 	E2HPO07XX857T6 --paths '/*'
+  only:
+    - master
+  cache:
+    untracked: true
+    paths:
+      - build/
